@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskBar Hero Tracker - Meu Clone</title>
+    <style>
+        /* Estilização básica simulando o modo escuro do site */
+        body {
+            background-color: #0b111e;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .filtros {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        /* Barra de Controle de Som */
+        .controle-som {
+            background-color: #111827;
+            border: 1px solid #1f2937;
+            padding: 8px 15px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-left: auto;
+        }
+        .controle-som label {
+            font-size: 13px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        .controle-som input[type="range"] {
+            cursor: pointer;
+            accent-color: #0070f3;
+            width: 120px;
+        }
+        .btn-testar {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        .btn-testar:hover {
+            background-color: #374151;
+        }
+
+        button {
+            background-color: #1e293b;
+            color: white;
+            border: 1px solid #334155;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        button.active {
+            background-color: #0070f3;
+            border-color: #0070f3;
+        }
+        
+        /* Container do Card Principal */
+        .fase-card {
+            background-color: #111827;
+            border: 1px solid #1f2937;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Linha interna com as informações e botões */
+        .fase-conteudo {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Barra de Cooldown na base do Card */
+        .cooldown-bar-container {
+            width: 100%;
+            background-color: #1f2937;
+            height: 4px;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+        }
+        .cooldown-bar {
+            height: 100%;
+            background-color: #0070f3; /* Azul original */
+            width: 0%; /* Começa em zero e vai subir */
+            transition: width 1s linear;
+        }
+
+        /* Container que agrupa o botão e o texto de cooldown abaixo */
+        .timer-bloco {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-width: 130px;
+        }
+        /* Texto sublinhado EM COOLDOWN */
+        .txt-cooldown {
+            font-size: 10px;
+            color: #0070f3;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            visibility: hidden; /* Escondido por padrão */
+        }
+
+        .acoes-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .select-tempo {
+            background-color: #1f2937;
+            color: white;
+            border: 1px solid #374151;
+            padding: 9px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-drop {
+            background-color: #065f46;
+            color: #34d399;
+            border: none;
+            width: 100%;
+            padding: 10px 15px;
+        }
+        .btn-drop.rodando {
+            background-color: #991b1b;
+            color: #fca5a5;
+            animation: mudancaCor 1s infinite alternate;
+        }
+        .btn-drop.concluido {
+            background-color: #d97706;
+            color: #ffffff;
+            animation: piscarAlerta 0.6s infinite alternate;
+        }
+        .btn-rota {
+            background-color: #374151;
+            margin-right: 0;
+        }
+        .btn-rota.na-rota {
+            background-color: #f59e0b;
+            color: #000000;
+        }
+        @keyframes mudancaCor {
+            from { background-color: #991b1b; }
+            to { background-color: #7f1d1d; }
+        }
+        @keyframes piscarAlerta {
+            from { background-color: #d97706; transform: scale(1); }
+            to { background-color: #b45309; transform: scale(1.03); }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>TaskBar Hero Tracker</h1>
+    
+    <div class="filtros">
+        <button id="btn-tudo" class="active" onclick="filtrar('tudo')">Mostrar tudo</button>
+        <button id="btn-rota" onclick="filtrar('rota')">Minha rota</button>
+
+        <div class="controle-som">
+            <label>
+                <input type="checkbox" id="chk-ativar-som" checked> 
+                📢 Som ao liberar baú
+            </label>
+            <button class="btn-testar" onclick="tocarSomAlerta()">🔊 Testar som</button>
+            <label>
+                🔊 Volume do aviso
+                <input type="range" id="range-volume" min="0" max="100" value="100" oninput="atualizarPorcentagemVolume(this.value)">
+                <span id="txt-volume">100%</span>
+            </label>
+        </div>
+    </div>
+
+    <div id="lista-fases"></div>
+
+    <script>
+        const dadosFases = [
+            // Fases do Mundo 1
+            { id: 1, nome: "Fase 1 - 1", lv: "Lv01" },
+            { id: 2, nome: "Fase 1 - 2", lv: "Lv02" },
+            { id: 3, nome: "Fase 1 - 3", lv: "Lv03" },
+            { id: 4, nome: "Fase 1 - 4", lv: "Lv05" },
+            { id: 5, nome: "Fase 1 - 5", lv: "Lv06" },
+            { id: 6, nome: "Fase 1 - 6", lv: "Lv07" },
+            { id: 7, nome: "Fase 1 - 7", lv: "Lv08" },
+            { id: 8, nome: "Fase 1 - 8", lv: "Lv10" },
+            { id: 9, nome: "Fase 1 - 9", lv: "Lv11" },
+            
+            // Fases do Mundo 2
+            { id: 10, nome: "Fase 2 - 1", lv: "Lv13" },
+            { id: 11, nome: "Fase 2 - 2", lv: "Lv14" },
+            { id: 12, nome: "Fase 2 - 3", lv: "Lv15" },
+            { id: 13, nome: "Fase 2 - 4", lv: "Lv16" },
+            { id: 14, nome: "Fase 2 - 5", lv: "Lv17" },
+            { id: 15, nome: "Fase 2 - 6", lv: "Lv18" },
+            { id: 16, nome: "Fase 2 - 7", lv: "Lv19" },
+            { id: 17, nome: "Fase 2 - 8", lv: "Lv20" }
+        ];
+
+        let minhaRota = JSON.parse(localStorage.getItem('minhaRota')) || [];
+        let timersAtivos = {};
+        let filtroAtual = 'tudo';
+
+        function renderizarFases() {
+            const container = document.getElementById('lista-fases');
+            container.innerHTML = '';
+
+            dadosFases.forEach(fase => {
+                const estaNaRota = minhaRota.includes(fase.id);
+                if (filtroAtual === 'rota' && !estaNaRota) return;
+
+                const card = document.createElement('div');
+                card.className = 'fase-card';
+                card.innerHTML = `
+                    <div class="fase-conteudo">
+                        <div>
+                            <strong>${fase.nome}</strong> <span style="color:#9ca3af; font-size:12px;">${fase.lv}</span>
+                        </div>
+                        <div class="acoes-container">
+                            <button class="btn-rota ${estaNaRota ? 'na-rota' : ''}" onclick="alternarRota(${fase.id})">
+                                ${estaNaRota ? '⭐ Na Rota' : '📁 Add Rota'}
+                            </button>
+                            
+                            <select id="select-tempo-${fase.id}" class="select-tempo">
+                                <option value="12">12 min</option>
+                                <option value="15">15 min</option>
+                            </select>
+
+                            <div class="timer-bloco">
+                                <button id="btn-drop-${fase.id}" class="btn-drop" onclick="alternarTimer(${fase.id})">⏱️ DROPOU!</button>
+                                <span id="lbl-cooldown-${fase.id}" class="txt-cooldown">EM COOLDOWN</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cooldown-bar-container">
+                        <div id="progress-${fase.id}" class="cooldown-bar"></div>
+                    </div>
+                `;
+                container.appendChild(card);
+                atualizarBotaoTimer(fase.id);
+            });
+        }
+
+        function alternarTimer(id) {
+            if (timersAtivos[id]) {
+                clearInterval(timersAtivos[id].intervalo);
+                delete timersAtivos[id];
+                atualizarBotaoTimer(id);
+                return;
+            }
+
+            const seletorTempo = document.getElementById(`select-tempo-${id}`);
+            const minutosEscolhidos = parseInt(seletorTempo.value);
+            const tempoMaximoSegundos = minutosEscolhidos * 60;
+            let tempoRestante = tempoMaximoSegundos;
+
+            timersAtivos[id] = {
+                tempoTotal: tempoRestante,
+                tempoMaximo: tempoMaximoSegundos,
+                status: 'rodando',
+                intervalo: setInterval(() => {
+                    tempoRestante--;
+                    timersAtivos[id].tempoTotal = tempoRestante;
+
+                    if (tempoRestante <= 0) {
+                        clearInterval(timersAtivos[id].intervalo);
+                        timersAtivos[id].status = 'concluido';
+                        
+                        if (document.getElementById('chk-ativar-som').checked) {
+                            tocarSomAlerta();
+                        }
+                    }
+                    atualizarBotaoTimer(id);
+                }, 1000)
+            };
+
+            atualizarBotaoTimer(id);
+        }
+
+        function atualizarBotaoTimer(id) {
+            const btn = document.getElementById(`btn-drop-${id}`);
+            const seletor = document.getElementById(`select-tempo-${id}`);
+            const progressBar = document.getElementById(`progress-${id}`);
+            const lblCooldown = document.getElementById(`lbl-cooldown-${id}`);
+            if (!btn) return;
+
+            const timer = timersAtivos[id];
+
+            if (!timer) {
+                btn.textContent = "⏱️ DROPOU!";
+                btn.className = "btn-drop";
+                if (seletor) seletor.disabled = false;
+                if (progressBar) progressBar.style.width = "0%";
+                if (lblCooldown) lblCooldown.style.visibility = "hidden"; // Esconde o texto
+            } else if (timer.status === 'rodando') {
+                const min = Math.floor(timer.tempoTotal / 60);
+                const seg = timer.tempoTotal % 60;
+                btn.textContent = `⏳ Disponível em ${min}:${seg < 10 ? '0' : ''}${seg}`;
+                btn.className = "btn-drop rodando";
+                if (seletor) seletor.disabled = true; 
+                if (lblCooldown) lblCooldown.style.visibility = "visible"; // Mostra o texto igual ao site
+
+                // INVERTIDO: Agora calcula para a barra ir ENCHENDO conforme o tempo passa
+                if (progressBar) {
+                    const tempoDecorrido = timer.tempoMaximo - timer.tempoTotal;
+                    const porcentagem = (tempoDecorrido / timer.tempoMaximo) * 100;
+                    progressBar.style.width = `${porcentagem}%`;
+                }
+            } else if (timer.status === 'concluido') {
+                btn.textContent = "➔ IR PRO MAPA!";
+                btn.className = "btn-drop concluido";
+                if (seletor) seletor.disabled = true;
+                if (progressBar) progressBar.style.width = "100%"; // Deixa cheia ao completar
+                if (lblCooldown) lblCooldown.style.visibility = "hidden";
+            }
+        }
+
+        function alternarRota(id) {
+            if (minhaRota.includes(id)) {
+                minhaRota = minhaRota.filter(faseId => faseId !== id); 
+            } else {
+                minhaRota.push(id); 
+            }
+            localStorage.setItem('minhaRota', JSON.stringify(minhaRota));
+            renderizarFases();
+        }
+
+        function filtrar(tipo) {
+            filtroAtual = tipo;
+            document.getElementById('btn-tudo').classList.toggle('active', tipo === 'tudo');
+            document.getElementById('btn-rota').classList.toggle('active', tipo === 'rota');
+            renderizarFases();
+        }
+
+        function atualizarPorcentagemVolume(valor) {
+            document.getElementById('txt-volume').textContent = valor + '%';
+        }
+
+        function tocarSomAlerta() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const sliderVolume = document.getElementById('range-volume').value;
+                const volumeCalculado = sliderVolume / 100;
+
+                const osc1 = audioCtx.createOscillator();
+                const gain1 = audioCtx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(880, audioCtx.currentTime); 
+                gain1.gain.setValueAtTime(volumeCalculado, audioCtx.currentTime);
+                osc1.connect(gain1);
+                gain1.connect(audioCtx.destination);
+                osc1.start();
+                osc1.stop(audioCtx.currentTime + 0.15);
+
+                setTimeout(() => {
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(880, audioCtx.currentTime);
+                    gain2.gain.setValueAtTime(volumeCalculado, audioCtx.currentTime);
+                    osc2.connect(gain2);
+                    gain2.connect(audioCtx.destination);
+                    osc2.start();
+                    osc2.stop(audioCtx.currentTime + 0.15);
+                }, 200);
+
+            } catch(e) {
+                console.log("Erro de áudio: ", e);
+            }
+        }
+
+        renderizarFases();
+    </script>
+</body>
+</html>
